@@ -21,7 +21,7 @@ parser.add_argument('-c', '--client-id', required=True)
 parser.add_argument('-s', '--client-secret', required=True)
 parser.add_argument('-u', '--username', required=True)
 parser.add_argument('-p', '--password', required=True)
-parser.add_argument('-l', '--logdir', required=False, default='/var/log')
+parser.add_argument('-l', '--logdir', required=False, default='/tmp')
 parser.add_argument('--dry-run', action='store_true', default=False)
 
 args = parser.parse_args()
