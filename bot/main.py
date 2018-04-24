@@ -45,7 +45,7 @@ MAX_COMMENT_REPLIES_PER_SUBMISSION = 1
 
 # Terms that should trigger activation of the bot
 TRIGGER_TERMS = (
-    re.compile('(sushi|sashimi)[-\s]*grade', re.IGNORECASE),  # E.g. "sushi-grade"
+    re.compile('(sushi|sashimi)[-\s]*(grade|cut)', re.IGNORECASE),  # E.g. "sushi-grade" or "sashimi-cut"
     re.compile('(fish|sushi|sashimi|ceviche|poke|salmon|tuna).+raw\s+consumption', re.IGNORECASE),  # e.g. "fish safe for raw consumption"
     re.compile('(fish|sushi|sashimi|ceviche|poke|salmon|tuna).+(consume|eat)\s+raw', re.IGNORECASE),  # e.g. "fish that are safe to consume raw"
     re.compile('consume\s+raw.*(fish|sushi|sashimi|ceviche|poke|salmon|tuna)', re.IGNORECASE),  # e.g. "safe to consume raw sashimi"
@@ -53,6 +53,8 @@ TRIGGER_TERMS = (
     re.compile('(sushi|sashimi|poke).*costco.*salmon', re.IGNORECASE),  # E.g. "sushi from costco salmon"
     re.compile('(sushi|sashimi|salmon|tuna|fish).*parasites', re.IGNORECASE),  # E.g. "freeze tuna to kill parasites"
     re.compile('parasites.*(sushi|sashimi|salmon|tuna|fish)', re.IGNORECASE),  # E.g. "are there parasites in tuna?"
+    re.compile('freez.*(kill|remove|destroy|weaken)\s+parasites', re.IGNORECASE),  # E.g. "freeze to kill parasites"
+    re.compile('(anisakis|anisakiasis)', re.IGNORECASE),  # E.g. "anisakis is a type of parasite"
 
     # For testing
     # re.compile('fish'),
