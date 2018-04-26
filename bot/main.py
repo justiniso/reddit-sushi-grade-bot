@@ -6,9 +6,8 @@ import argparse
 import logging
 import datetime
 
-import yaml
 import praw
-from praw.models import Comment
+from praw.models import Comment, Submission
 
 from cache import RemoteFileCache
 
@@ -23,6 +22,8 @@ parser.add_argument('-u', '--username', required=True)
 parser.add_argument('-p', '--password', required=True)
 parser.add_argument('-l', '--logdir', required=False, default='/tmp')
 parser.add_argument('--dry-run', action='store_true', default=False)
+parser.add_argument('--comments', action='store_true', default=False)
+parser.add_argument('--submissions', action='store_true', default=False)
 
 args = parser.parse_args()
 
@@ -57,9 +58,6 @@ TRIGGER_TERMS = (
     re.compile('parasites.*\s(sushi|sashimi)', re.IGNORECASE),  # E.g. "are there parasites in tuna?"
     re.compile('(frozen|freez).*\s(kill|remove|destroy|weaken)\s+parasites', re.IGNORECASE),  # E.g. "freeze to kill parasites"
     re.compile('(anisakis|anisakiasis)', re.IGNORECASE),  # E.g. "anisakis is a type of parasite"
-
-    # For testing
-    # re.compile('fish'),
 )
 
 SUMMON_PHRASES = (
@@ -71,7 +69,7 @@ SUMMON_PHRASES = (
 cache = RemoteFileCache('reddit-sushi-grade-bot', 'cache.json')
 
 
-def Client():
+def Client() -> praw.Reddit:
     return praw.Reddit(
         client_id=args.client_id,
         client_secret=args.client_secret,
@@ -81,6 +79,18 @@ def Client():
 
 
 def main():
+    if args.comments:
+        log.info('Starting comment loop')
+        commentloop()
+    if args.submissions:
+        log.info('Starting submission loop')
+        submissionloop()
+    log.info('No action specified')
+    sys.exit(1)
+
+
+def commentloop():
+    """Run the comment loop to stream and reply to relevant comments"""
     reddit = Client()
 
     subreddit = reddit.subreddit('all')
@@ -110,8 +120,37 @@ def main():
         sys.exit()
 
 
-def reply_to_comment(comment: Comment) -> bool:
+def submissionloop():
+    """Run the submission reply loop to stream and reply to relevant submissions"""
+    reddit = Client()
+    subreddit = reddit.subreddit('all')
+    submissions = subreddit.stream.submissions()
 
+    checked = 0
+    submissions_replied_to = 0
+    try:
+        for submission in submissions:
+            title_and_text = submission.title + ' ' + (submission.selftext or '')
+            matches = [re.findall(term, title_and_text) for term in TRIGGER_TERMS]
+            if any(matches):
+                result = reply_to_submission(submission)
+                if result:
+                    submissions_replied_to += 1
+                    log.info('Sleeping to avoid commenting too much')
+                    time.sleep(120)
+            checked += 1
+
+            # Display messages ever 100 batches to start, then ever 10000 comments to avoid insane amounts of logging
+            interval = 100 if checked < 1000 else 1000
+            if checked % interval == 0:
+                log.info(f'Checked {checked} submissions, replied to {submissions_replied_to}')
+    except KeyboardInterrupt:
+        log.info(f'Checked {checked} submissions,  replied to {submissions_replied_to}; quitting...')
+        sys.exit()
+
+
+def reply_to_comment(comment: Comment) -> bool:
+    """Replies to a single comment"""
     # Don't reply to comments we've already replied to
     for reply in comment.replies.list():
         if reply.author.name == args.username:
@@ -127,9 +166,9 @@ def reply_to_comment(comment: Comment) -> bool:
     if not args.dry_run:
         cache.set(f'replies_per_submission:{comment.submission.id}', replies_per_thread + 1)
 
-        log.info(f'Commenting on comment: {comment.permalink}')
+        log.info(f'Commenting on comment: {comment.shortlink}')
 
-        comment.reply(COMMENT)
+        comment.reply(COMMENT.format(signature=comment.submission.id))
         comment.upvote()
 
         return True
@@ -140,11 +179,29 @@ def reply_to_comment(comment: Comment) -> bool:
     return False
 
 
+def reply_to_submission(submission: Submission) -> bool:
+    """Replies to a single submission"""
+    for reply in submission.comments.list():
+        if reply.author.name == args.username:
+            log.info(f'Already replied to submission {submission.id}')
+            return False
+
+    if args.dry_run:
+        log.info(f'Dry-run, skipping submission: {submission.permalink}')
+    else:
+        replies_per_thread = cache.get(f'replies_per_submission:{submission.id}') or 0
+        cache.set(f'replies_per_submission:{submission.id}', replies_per_thread + 1)
+
+        log.info(f'Replying to submission: {submission.permalink}')
+
+        submission.reply(COMMENT.format(signature=submission.id))
+        submission.upvote()
+        return True
+
+    return False
+
+
 def cleanup():
-    pass
-
-
-def submissions():
     pass
 
 
@@ -243,7 +300,7 @@ Very good and thorough research-backed links on the topic:
 - [Anisakidosis: Perils of the Deep](https://academic.oup.com/cid/article/51/7/806/354398), *Clinical Infectious Diseases*
 - [Presence of Parasites in Fish](http://www.fao.org/docrep/006/y4743e/y4743e0c.htm), *FAO, United Nations*
 
-Spread the word and help educate consumers about raw fish consumption! Use the phrase “sushi-grade bot” to summon me.
+Spread the word and help educate consumers about raw fish consumption! Use the phrase “sushi-grade bot” to summon me. ^^({signature})
 """
 
 
