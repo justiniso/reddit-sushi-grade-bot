@@ -51,14 +51,20 @@ MAX_COMMENT_REPLIES_PER_SUBMISSION = 1
 # Terms that should trigger activation of the bot
 TRIGGER_TERMS = (
     re.compile('(sushi|sashimi)[-\s]*(grade|cut)', re.IGNORECASE),  # E.g. "sushi-grade" or "sashimi-cut"
-    re.compile('(fish|sushi|sashimi|ceviche|poke|salmon|tuna)\s.+raw\s+consumption', re.IGNORECASE),  # e.g. "fish safe for raw consumption"
+    re.compile('\W(fish|sushi|sashimi|ceviche|poke|salmon|tuna)\s.+raw\s+consumption', re.IGNORECASE),  # e.g. "fish safe for raw consumption"
     re.compile('costco.*salmon.*\s(sushi|sashimi|poke)', re.IGNORECASE),  # E.g. "costco salmon sushi"
     re.compile('(sushi|sashimi|poke)\s.*costco.*salmon', re.IGNORECASE),  # E.g. "sushi from costco salmon"
-    re.compile('(sushi|sashimi|salmon|tuna|fish)\s.*parasites', re.IGNORECASE),  # E.g. "freeze tuna to kill parasites"
+    re.compile('\W(sushi|sashimi|salmon|tuna|fish)\s.*parasites', re.IGNORECASE),  # E.g. "freeze tuna to kill parasites"
     re.compile('parasites.*\s(sushi|sashimi)', re.IGNORECASE),  # E.g. "are there parasites in tuna?"
     re.compile('(frozen|freez).*\s(kill|remove|destroy|weaken)\s+parasites', re.IGNORECASE),  # E.g. "freeze to kill parasites"
     re.compile('(anisakis|anisakiasis)', re.IGNORECASE),  # E.g. "anisakis is a type of parasite"
 )
+
+BLACKLIST_MATCH = {
+    # Aquarium fish and hobbyists
+    re.compile('betta', re.IGNORECASE),
+    re.compile('aquarium', re.IGNORECASE),
+}
 
 SUMMON_PHRASES = (
     'sushi-grade bot',
@@ -103,7 +109,12 @@ def commentloop():
 
             matches = [re.findall(term, comment.body) for term in TRIGGER_TERMS]
             if any(matches):
-                # Check if we already replied to this
+
+                # Ignore the blacklist results
+                if any([re.findall(term, comment.body) for term in BLACKLIST_MATCH]):
+                    log.info(f'Ignoring comment {comment.permalink} due to blacklist')
+                    continue
+
                 result = reply_to_comment(comment)
                 if result:
                     comments_replied_to += 1
@@ -133,6 +144,11 @@ def submissionloop():
             title_and_text = submission.title + ' ' + (submission.selftext or '')
             matches = [re.findall(term, title_and_text) for term in TRIGGER_TERMS]
             if any(matches):
+                # Ignore the blacklist results
+                if any([re.findall(term, title_and_text) for term in BLACKLIST_MATCH]):
+                    log.info(f'Ignoring comment {submission.shortlink} due to blacklist')
+                    continue
+
                 result = reply_to_submission(submission)
                 if result:
                     submissions_replied_to += 1
@@ -166,7 +182,7 @@ def reply_to_comment(comment: Comment) -> bool:
     if not args.dry_run:
         cache.set(f'replies_per_submission:{comment.submission.id}', replies_per_thread + 1)
 
-        log.info(f'Commenting on comment: {comment.shortlink}')
+        log.info(f'Commenting on comment: {comment.permalink}')
 
         comment.reply(COMMENT.format(signature=comment.submission.id))
         comment.upvote()
@@ -187,12 +203,12 @@ def reply_to_submission(submission: Submission) -> bool:
             return False
 
     if args.dry_run:
-        log.info(f'Dry-run, skipping submission: {submission.permalink}')
+        log.info(f'Dry-run, skipping submission: {submission.shortlink}')
     else:
         replies_per_thread = cache.get(f'replies_per_submission:{submission.id}') or 0
         cache.set(f'replies_per_submission:{submission.id}', replies_per_thread + 1)
 
-        log.info(f'Replying to submission: {submission.permalink}')
+        log.info(f'Replying to submission: {submission.shortlink}')
 
         submission.reply(COMMENT.format(signature=submission.id))
         submission.upvote()
