@@ -24,6 +24,7 @@ parser.add_argument('-l', '--logdir', required=False, default='/tmp')
 parser.add_argument('--dry-run', action='store_true', default=False)
 parser.add_argument('--comments', action='store_true', default=False)
 parser.add_argument('--submissions', action='store_true', default=False)
+parser.add_argument('--cleanup', action='store_true', default=False)
 
 args = parser.parse_args()
 
@@ -91,6 +92,9 @@ def main():
     if args.submissions:
         log.info('Starting submission loop')
         submissionloop()
+    if args.cleanup:
+        log.info('Starting cleanup loop')
+        cleanuploop()
     log.info('No action specified')
     sys.exit(1)
 
@@ -217,21 +221,34 @@ def reply_to_submission(submission: Submission) -> bool:
     return False
 
 
-def cleanup():
-    pass
+def cleanuploop():
+    reddit = Client()
+    comments_checked = 0
+
+    while True:
+        comments = reddit.user.me().comments.new(limit=100)
+        for comment in comments:
+            comments_checked += 1
+            if comment.score < -1:
+                log.info(f'Deleting comment {comment.permalink} with low score {comment.score}')
+                comment.delete()
+
+            if comments_checked % 50 == 0:
+                log.info(f'Checked {comments_checked} comments')
+        time.sleep(60 * 30)
 
 
 COMMENT = """
-I see a lot of misinformation spread about eating raw fish and what “sushi-grade” means, so I’m a helpful robot here to make sure people get the science and facts about raw fish for sushi.
+It looks like you're talking about raw fish and food safety. I see a lot of misinformation spread about eating raw fish and what “sushi-grade” means, so I’m a helpful robot here to make sure people get the science and facts about raw fish for sushi.
 
-*Upvote if you find this information helpful and relevant, downvote if not! You can comment or DM for direct feedback to the creators.*
+*Upvote if you find this information helpful and relevant, downvote if not! Comments below -1 will be deleted. You can also comment or DM for direct feedback to the creators.*
 
 ## **Fact #1: You don’t need to buy sushi-grade fish for sushi**
 
 You may have heard that in order for fish to be considered “sushi-grade,” it has to be frozen at supercold temperatures to destroy parasites. FDA guidelines do recommend that *all* fish for sushi (aside from large tuna and certain shellfish) be frozen at the following temperatures to destroy parasites^1 ^2
 
 - -4°F (-20°C) for 7 days (total time)
-- -31°F (-35°C) until solid and storing at an ambient temperature of -31°F (-35°C) 15 hours
+- -31°F (-35°C) until solid and storing at an ambient temperature of -31°F (-35°C) for 15 hours
 - -31°F (-35°C) until solid and storing at an ambient temperature of -4°F (-20°C) for 24 hours
 
 This does not mean that all fish are a parasite hazard to humans; in fact, the vast majority are not. This is a safety precaution to avoid the dangers of mislabeling and miseducation in an industry where these bad practices are rampant. It’s just the government appropriately erring on the side of caution, but you individually may have a higher risk tolerance to select low risk species that were not frozen under these guidelines. For instance, making sushi from parasite-free Arctic char or farmed-salmon instead of higher-risk wild salmon. You take similar risks every time you eat fish cooked to medium rare (which is below FDA guidelines of 145°F—well done). 
