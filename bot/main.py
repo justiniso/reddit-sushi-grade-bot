@@ -8,6 +8,7 @@ import datetime
 
 import praw
 from praw.models import Comment, Submission
+from prawcore.exceptions import Forbidden
 
 from cache import RemoteFileCache
 
@@ -86,17 +87,24 @@ def Client() -> praw.Reddit:
 
 
 def main():
-    if args.comments:
-        log.info('Starting comment loop')
-        commentloop()
-    if args.submissions:
-        log.info('Starting submission loop')
-        submissionloop()
-    if args.cleanup:
-        log.info('Starting cleanup loop')
-        cleanuploop()
-    log.info('No action specified')
-    sys.exit(1)
+    while True:
+        try:
+            if args.comments:
+                log.info('Starting comment loop')
+                commentloop()
+            if args.submissions:
+                log.info('Starting submission loop')
+                submissionloop()
+            if args.cleanup:
+                log.info('Starting cleanup loop')
+                cleanuploop()
+
+            log.info('No action specified')
+            sys.exit(1)
+
+        except Forbidden:
+            log.exception('Restarting loop due to forbidden error')
+            continue
 
 
 def commentloop():
@@ -115,7 +123,7 @@ def commentloop():
             if any(matches):
 
                 # Ignore the blacklist results
-                if any([re.findall(term, comment.body) for term in BLACKLIST_MATCH]):
+                if any([re.findall(term, f'{comment.subreddit.display_name} : {comment.body}') for term in BLACKLIST_MATCH]):
                     log.info(f'Ignoring comment {comment.permalink} due to blacklist')
                     continue
 
@@ -130,6 +138,7 @@ def commentloop():
             interval = 100 if checked < 10000 else 10000
             if checked % interval == 0:
                 log.info(f'Checked {checked} comments, replied to {comments_replied_to}')
+
     except KeyboardInterrupt:
         log.info(f'Checked {checked} comments,  replied to {comments_replied_to}; quitting...')
         sys.exit()
@@ -241,7 +250,7 @@ def cleanuploop():
 COMMENT = """
 It looks like you're talking about raw fish and food safety. I see a lot of misinformation spread about eating raw fish and what “sushi-grade” means, so I’m a helpful robot here to make sure people get the science and facts about raw fish for sushi.
 
-*Upvote if you find this information helpful and relevant, downvote if not! Comments below -1 will be deleted. You can also comment or DM for direct feedback to the creators.*
+*Upvote if you find this information helpful and relevant, downvote if not! Comments scored below 0 will be deleted. You can also comment or DM for direct feedback to the creators.*
 
 ## **Fact #1: You don’t need to buy sushi-grade fish for sushi**
 
