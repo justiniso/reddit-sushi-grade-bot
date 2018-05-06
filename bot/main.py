@@ -66,6 +66,9 @@ BLACKLIST_MATCH = {
     # Aquarium fish and hobbyists
     re.compile('betta', re.IGNORECASE),
     re.compile('aquarium', re.IGNORECASE),
+    re.compile('\btank\b', re.IGNORECASE),
+    re.compile('\breef\b', re.IGNORECASE),
+    re.compile('reeftank', re.IGNORECASE),
 }
 
 SUMMON_PHRASES = (
