@@ -64,11 +64,11 @@ TRIGGER_TERMS = (
 
 BLACKLIST_MATCH = {
     # Aquarium fish and hobbyists
-    re.compile('betta', re.IGNORECASE),
-    re.compile('aquarium', re.IGNORECASE),
-    re.compile('\btank\b', re.IGNORECASE),
-    re.compile('\breef\b', re.IGNORECASE),
-    re.compile('reeftank', re.IGNORECASE),
+    re.compile(r'betta', re.IGNORECASE),
+    re.compile(r'aquarium', re.IGNORECASE),
+    re.compile(r'\btank\b', re.IGNORECASE),
+    re.compile(r'\breef\b', re.IGNORECASE),
+    re.compile(r'reeftank', re.IGNORECASE),
 }
 
 SUMMON_PHRASES = (
